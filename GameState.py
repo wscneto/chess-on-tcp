@@ -1,14 +1,17 @@
 import chess
 
+# Representa o estado atual do jogo de xadrez
 class GameState:
     def __init__(self):
-        self.board = chess.Board()
+        self.board = chess.Board() # Cria tabuleiro inicial padrão
         self.selected_square = None
         self.my_turn = True
         self.game_over = False
         self.result = None
+        self.is_black_player = False
 
     def make_move(self, move):
+        # Executa o movimento se for válido
         if move in self.board.legal_moves:
             self.board.push(move)
             self.my_turn = False
@@ -17,6 +20,7 @@ class GameState:
         return False
 
     def receive_move(self, move):
+        # Aplica movimento recebido via rede
         self.board.push(move)
         self.my_turn = True
         self._check_game_over()
@@ -31,6 +35,7 @@ class GameState:
         return self.game_over
 
     def reset(self):
+        # Reinicia o estado do jogo
         self.board.reset()
         self.selected_square = None
         self.my_turn = True
