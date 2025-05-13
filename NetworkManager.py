@@ -1,5 +1,6 @@
 import socket, threading, chess
 
+# Gerencia a comunicação entre dois jogadores via TCP/IP
 class NetworkManager:
     def __init__(self, host='localhost', port=65432):
         self.host = host
@@ -9,6 +10,7 @@ class NetworkManager:
         self.move_received_callback = None
 
     def start_server(self):
+        # Inicia o socket como servidor aguardando conexão
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind((self.host, self.port))
         self.sock.listen(1)
@@ -19,6 +21,7 @@ class NetworkManager:
         self._start_receive_thread()
 
     def connect_to_server(self):
+        # Conecta-se ao servidor remoto
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((self.host, self.port))
         print("Connected to server!")
@@ -29,6 +32,7 @@ class NetworkManager:
         self.receive_thread.start()
 
     def _receive_moves(self):
+        # Thread que escuta os dados recebidos do outro jogador
         while True:
             try:
                 data = self.sock.recv(1024).decode()
@@ -48,6 +52,7 @@ class NetworkManager:
                 break
 
     def send_move(self, move):
+        # Envia um movimento ao adversário
         if self.sock:
             self.sock.send(str(move).encode())
 
