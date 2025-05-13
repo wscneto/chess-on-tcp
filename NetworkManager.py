@@ -1,4 +1,4 @@
-import socket, threading, chess
+import socket, threading, chess, queue
 
 # Gerencia a comunicação entre dois jogadores via TCP/IP
 class NetworkManager:
@@ -7,7 +7,7 @@ class NetworkManager:
         self.port = port
         self.sock = None
         self.receive_thread = None
-        self.move_received_callback = None
+        self.message_queue = queue.Queue()
 
     def start_server(self):
         # Inicia o socket como servidor aguardando conexão
@@ -33,32 +33,50 @@ class NetworkManager:
 
     def _receive_moves(self):
         # Thread que escuta os dados recebidos do outro jogador
+        buffer = ""
         while True:
             try:
                 data = self.sock.recv(1024).decode()
-                if data == 'quit':
-                    print("Opponent quit.")
+                if not data:
                     break
-                elif data.startswith('game_over:'):
-                    result = data.split(':')[1]
-                    if self.game_over_callback:
-                        self.game_over_callback(result)
-                else:
-                    move = chess.Move.from_uci(data)
-                    if self.move_received_callback:
-                        self.move_received_callback(move)
+                    
+                buffer += data
+                while "\n" in buffer:
+                    line, buffer = buffer.split("\n", 1)
+                    if line.startswith("move:"):
+                        move_str = line[5:]
+                        try:
+                            move = chess.Move.from_uci(move_str)
+                            self.message_queue.put(('move', move))
+                        except chess.InvalidMoveError:
+                            print(f"Invalid move received: {move_str}")
+                    elif line.startswith("game_over:"):
+                        result = line[10:]
+                        self.message_queue.put(('game_over', result))
+                    elif line == "quit":
+                        print("Opponent quit.")
+                        return
+                    else:
+                        print(f"Unknown message: {line}")
+                        
             except ConnectionError:
                 print("Connection lost")
                 break
+    
+    def get_messages(self):
+        messages = []
+        while not self.message_queue.empty():
+            messages.append(self.message_queue.get())
+        return messages
 
     def send_move(self, move):
         # Envia um movimento ao adversário
         if self.sock:
-            self.sock.send(str(move).encode())
+            self.sock.sendall(f"move:{move}\n".encode())
 
     def send_game_over(self, result):
         if self.sock:
-            self.sock.send(f'game_over:{result}'.encode())
+            self.sock.sendall(f"game_over:{result}\n".encode())
 
     def close(self):
         if self.sock:
