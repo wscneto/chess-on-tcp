@@ -73,7 +73,12 @@ class MainGame:
             if self.game_state.make_move(move): # Tenta fazer o movimento
                 self.network.send_move(str(move)) # Envia movimento ao adversário
                 if self.game_state.game_over:
-                    self.network.send_game_over(self.game_state.result)
+                    if "won" in self.game_state.result:
+                        self.network.send_game_over("win")
+                    elif "lost" in self.game_state.result:
+                        self.network.send_game_over("lose")
+                    else:
+                        self.network.send_game_over("draw")
             self.game_state.selected_square = None
 
     def _render(self):
@@ -110,7 +115,12 @@ class MainGame:
                 
     def _handle_remote_game_over(self, result):
         self.game_state.game_over = True
-        self.game_state.result = result
+        if result == "win":
+            self.game_state.result = "Checkmate! You lost!"
+        elif result == "lose":
+            self.game_state.result = "Checkmate! You won!"
+        else:
+            self.game_state.result = "Stalemate!"
         self._handle_game_over()
 
 if __name__ == "__main__":

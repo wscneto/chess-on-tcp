@@ -28,7 +28,10 @@ class GameState:
     def _check_game_over(self):
         if self.board.is_checkmate():
             self.game_over = True
-            self.result = "Checkmate! You won!" if not self.my_turn else "Checkmate! You lost!"
+            if self.board.turn == chess.WHITE:
+                self.result = "Checkmate! You won!" if self.is_black_player else "Checkmate! You lost!"
+            else:
+                self.result = "Checkmate! You won!" if not self.is_black_player else "Checkmate! You lost!"
         elif self.board.is_stalemate():
             self.game_over = True
             self.result = "Stalemate!"
