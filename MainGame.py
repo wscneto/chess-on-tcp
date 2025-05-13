@@ -29,14 +29,17 @@ class MainGame:
         if is_server:
             self.network.start_server()
             self.game_state.my_turn = True
+            self.game_state.is_black_player = False
         else:
             self.network.connect_to_server()
             self.game_state.my_turn = False
+            self.game_state.is_black_player = True
 
     def _main_loop(self):
         while self.running:
             self.clock.tick(60) # Limita FPS
             self._handle_events()
+            self._process_network_messages()
             self._render() # Atualiza renderização do tabuleiro
 
             if self.game_state.game_over:
@@ -49,7 +52,7 @@ class MainGame:
         # Processa eventos do pygame
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                self.network.send_move('quit')
+                self.network.send_move('quit\n')
                 self.running = False
 
             if (event.type == pygame.MOUSEBUTTONDOWN and 
@@ -59,7 +62,7 @@ class MainGame:
 
     def _handle_move(self, mouse_pos):
         # Processa tentativa de movimento com base no clique do jogador
-        square = self.renderer.get_square_from_mouse(mouse_pos)
+        square = self.renderer.get_square_from_mouse(mouse_pos, self.game_state.is_black_player)
         piece = self.game_state.board.piece_at(square)
 
         if self.game_state.selected_square is None:
@@ -68,22 +71,27 @@ class MainGame:
         else:
             move = chess.Move(self.game_state.selected_square, square)
             if self.game_state.make_move(move): # Tenta fazer o movimento
-                self.network.send_move(move) # Envia movimento ao adversário
+                self.network.send_move(str(move)) # Envia movimento ao adversário
                 if self.game_state.game_over:
                     self.network.send_game_over(self.game_state.result)
             self.game_state.selected_square = None
 
     def _render(self):
         self.renderer.draw_board()
-        self.renderer.highlight_moves(
-            self.game_state.board, 
-            self.game_state.selected_square
-        )
-        self.renderer.draw_pieces(
-            self.game_state.board, 
-            self.assets.pieces
-        )
+        self.renderer.highlight_moves(self.game_state.board, self.game_state.selected_square, self.game_state.is_black_player)
+        self.renderer.draw_pieces(self.game_state.board, self.assets.pieces, self.game_state.is_black_player)
         pygame.display.flip()
+
+    def _process_network_messages(self):
+        for msg_type, content in self.network.get_messages():
+            if msg_type == 'move':
+                self.game_state.receive_move(content)
+            elif msg_type == 'game_over':
+                self._handle_remote_game_over(content)
+            elif msg_type == 'quit':
+                self.running = False
+                self.game_state.result = "Opponent quit the game."
+                self.game_state.game_over = True
 
     def _handle_game_over(self):
         again_rect = self.renderer.draw_game_over_screen(self.game_state.result)
